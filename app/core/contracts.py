@@ -121,3 +121,18 @@ class AudioTranscriptionResponse(BaseModel):
         ...,
         description="Temps d'exécution total en secondes."
     )
+
+
+
+class ImageAnalysisRequest(BaseModel):
+    candidate_labels: List[str] = Field(
+        default=["colis endommagé", "reçu / facture", "produit défectueux", "erreur de livraison", "autre"],
+        description="Liste de catégories pour la classification Zero-Shot"
+    )
+
+class ImageAnalysisResponse(BaseModel):
+    summary: str = Field(description="Description visuelle détaillée ou résumé de l'image")
+    primary_label: str = Field(description="Catégorie principale détectée")
+    confidence: float = Field(description="Score de confiance pour la catégorie principale (0 à 1)")
+    all_scores: dict = Field(default_factory=dict, description="Distribution des scores par catégorie")
+    execution_time_seconds: float = Field(description="Temps d'exécution en secondes")

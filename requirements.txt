@@ -8,6 +8,7 @@ httpx==0.28.1
 
 # --- Intégrations API & LLM ---
 openai==3.13.0
+groq>=0.9.0
 
 # --- Modèles Locaux Audio (faster-whisper) & Traduction (Hugging Face) ---
 faster-whisper==1.2.1
