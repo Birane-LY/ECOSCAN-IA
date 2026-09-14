@@ -1,0 +1,16 @@
+# --- Framework Web & FastAPI ---
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+httpx==0.28.1
+
+# --- Intégrations API & LLM ---
+openai==3.13.0
+
+# --- Modèles Locaux Audio (faster-whisper) & Traduction (Hugging Face) ---
+faster-whisper==1.2.1
+transformers==5.17.0
+torch==2.14.0
+accelerate==1.4.0   
