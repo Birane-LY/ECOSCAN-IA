@@ -67,8 +67,12 @@ class Settings(BaseSettings):
     )
 
     # --- Chaînes de Secours (Failover) ---
+    # openai/gpt-oss-120b remplace llama-3.3-70b-versatile (décommissionné par
+    # Groq le 16/08/2026) et mixtral-8x7b-32768 (retiré en 2025, sans
+    # successeur direct) — les deux modèles précédemment configurés ici sont
+    # morts, ce qui provoquait un échec total de la chaîne Groq.
     TEXT_MODEL_CHAIN_RAW: str = Field(
-        default="groq:llama-3.3-70b-versatile,huggingface:meta-llama/Llama-3.3-70B-Instruct,huggingface:Qwen/Qwen2.5-72B-Instruct",
+        default="groq:openai/gpt-oss-120b,groq:qwen/qwen3.6-27b,huggingface:meta-llama/Llama-3.3-70B-Instruct",
         alias="TEXT_MODEL_CHAIN",
         description="Liste brute séparée par des virgules des modèles texte à essayer en cascade (Groq en priorité ou backup)."
     )
@@ -88,17 +92,44 @@ class Settings(BaseSettings):
         description="Nombre minimal de modèles de secours recommandés pour garantir la tolérance aux pannes."
     )
 
+    @staticmethod
+    def _nettoyer_et_parser_chaine(valeur_brute: str) -> List[str]:
+        """Parse une chaîne de modèles, en tolérant qu'elle ait été saisie au
+        format tableau JSON (ex: '["groq:x","groq:y"]') plutôt qu'en simple
+        liste séparée par des virgules. C'est exactement l'erreur qui a cassé
+        toute la chaîne de secours : le crochet et les guillemets restaient
+        collés au nom du fournisseur après un simple split(','), et
+        'provider == "groq"' ne matchait jamais '["groq'.
+
+        Sans cette tolérance, une seule mauvaise ligne de .env fait échouer
+        TOUTE la chaîne de secours — exactement le contraire de ce qu'un
+        mécanisme de failover est censé garantir.
+        """
+        valeur = valeur_brute.strip()
+        # Retire une éventuelle enveloppe de tableau JSON avant de split sur ','
+        if valeur.startswith("[") and valeur.endswith("]"):
+            valeur = valeur[1:-1]
+        items = []
+        for item in valeur.split(","):
+            # Retire les guillemets (simples ou doubles) et espaces résiduels
+            # autour de chaque élément, qu'ils viennent du format JSON ou d'une
+            # saisie manuelle malheureuse.
+            nettoye = item.strip().strip('"').strip("'").strip()
+            if nettoye:
+                items.append(nettoye)
+        return items
+
     @property
     def TEXT_MODEL_CHAIN(self) -> List[str]:
-        return [item.strip() for item in self.TEXT_MODEL_CHAIN_RAW.split(",") if item.strip()]
+        return self._nettoyer_et_parser_chaine(self.TEXT_MODEL_CHAIN_RAW)
 
     @property
     def VISION_MODEL_CHAIN(self) -> List[str]:
-        return [item.strip() for item in self.VISION_MODEL_CHAIN_RAW.split(",") if item.strip()]
+        return self._nettoyer_et_parser_chaine(self.VISION_MODEL_CHAIN_RAW)
 
     @property
     def AUDIO_TRANSCRIPTION_CHAIN(self) -> List[str]:
-        return [item.strip() for item in self.AUDIO_TRANSCRIPTION_CHAIN_RAW.split(",") if item.strip()]
+        return self._nettoyer_et_parser_chaine(self.AUDIO_TRANSCRIPTION_CHAIN_RAW)
 
     model_config = SettingsConfigDict(
         env_file=".env",

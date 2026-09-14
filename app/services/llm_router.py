@@ -106,32 +106,46 @@ class LLMRouterService:
             return data["choices"][0]["message"]["content"]
 
     async def _call_huggingface(self, prompt: str, system_prompt: Optional[str], model_name: str) -> str:
-        """Appel aux API d'inférence de Hugging Face."""
+        """Appel au routeur Hugging Face Inference Providers — endpoint unique
+        et compatible OpenAI (https://router.huggingface.co/v1/chat/completions),
+        le modèle est indiqué DANS le payload, jamais dans le chemin de l'URL.
+
+        L'ancienne URL (.../hf-inference/v1/models/{model}/v1/chat/completions)
+        contenait un '/v1/' en double et ne correspond à aucun format actuel de
+        l'API HF — elle renvoyait systématiquement 404, masqué tant que la
+        chaîne échouait déjà plus tôt sur Groq.
+
+        `model_name` peut être un simple ID ("meta-llama/Llama-3.3-70B-Instruct")
+        ou inclure un fournisseur explicite via ':' (ex: "...:together") — dans
+        ce cas, on laisse tel quel, HF Router gère les deux formats.
+        """
         if not settings.HUGGINGFACE_API_KEY:
             raise ValueError("Clé HUGGINGFACE_API_KEY non configurée.")
 
         headers = {
-            "Authorization": f"Bearer {settings.HUGGINGFACE_API_KEY}",
+            "Authorization": f"Bearer {settings.HUGGINGFACE_API_KEY.strip()}",
             "Content-Type": "application/json"
         }
-        
-        full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         payload = {
-            "inputs": full_prompt,
-            "parameters": {"max_new_tokens": 1024, "return_full_text": False}
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": 1024,
+            "stream": False
         }
-        
-        url = f"https://api-inference.huggingface.co/models/{model_name}"
+
+        url = "https://router.huggingface.co/v1/chat/completions"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            if isinstance(data, list) and len(data) > 0:
-                return data[0].get("generated_text", "")
-            elif isinstance(data, dict):
-                return data.get("generated_text", data.get("content", ""))
-            return str(data)
+            return data["choices"][0]["message"]["content"]
 
     async def _call_openai(self, prompt: str, system_prompt: Optional[str], model_name: str) -> str:
         """Appel à l'API OpenAI officielle ou à un serveur compatible."""
