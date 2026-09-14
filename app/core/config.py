@@ -7,9 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """
     Gestion centralisée des paramètres de configuration de l'application EcoScan AI.
-
-    Cette classe lit les variables d'environnement à partir du fichier `.env`
-    et applique des valeurs par défaut sécurisées pour le développement.
     """
 
     # --- Configuration de l'Application ---
@@ -56,23 +53,27 @@ class Settings(BaseSettings):
         default="",
         description="Clé d'API ou jeton d'accès pour les services d'inférence Hugging Face."
     )
+    GROQ_API_KEY: str = Field(
+        default="",
+        description="Clé d'API Groq pour l'inférence ultra-rapide en secours."
+    )
     OPENAI_API_KEY: str = Field(
         default="",
         description="Clé d'API OpenAI pour les modèles distants (optionnel)."
     )
     OPENAI_API_BASE: str = Field(
         default="",
-        description="URL de base personnalisée pour les API compatibles OpenAI."
+        description="URL de base personnalisée pour les API compatibles OpenAI (ex: Groq, Ollama)."
     )
 
     # --- Chaînes de Secours (Failover) ---
     TEXT_MODEL_CHAIN_RAW: str = Field(
-        default="huggingface:meta-llama/Llama-3.3-70B-Instruct,huggingface:Qwen/Qwen2.5-72B-Instruct,huggingface:mistralai/Mistral-7B-Instruct-v0.3",
+        default="groq:llama-3.3-70b-versatile,huggingface:meta-llama/Llama-3.3-70B-Instruct,huggingface:Qwen/Qwen2.5-72B-Instruct",
         alias="TEXT_MODEL_CHAIN",
-        description="Liste brute séparée par des virgules des modèles texte à essayer en cascade."
+        description="Liste brute séparée par des virgules des modèles texte à essayer en cascade (Groq en priorité ou backup)."
     )
     VISION_MODEL_CHAIN_RAW: str = Field(
-        default="huggingface:meta-llama/Llama-3.2-11B-Vision-Instruct,huggingface:Qwen/Qwen2-VL-7B-Instruct",
+        default="groq:llama-3.2-11b-vision-preview,huggingface:meta-llama/Llama-3.2-11B-Vision-Instruct",
         alias="VISION_MODEL_CHAIN",
         description="Liste brute séparée par des virgules des modèles vision à essayer en cascade."
     )
@@ -89,32 +90,14 @@ class Settings(BaseSettings):
 
     @property
     def TEXT_MODEL_CHAIN(self) -> List[str]:
-        """
-        Découpe la chaîne brute des modèles texte en une liste de chaînes exploitables.
-
-        Returns:
-            List[str]: Liste des identifiants de modèles texte nettoyés.
-        """
         return [item.strip() for item in self.TEXT_MODEL_CHAIN_RAW.split(",") if item.strip()]
 
     @property
     def VISION_MODEL_CHAIN(self) -> List[str]:
-        """
-        Découpe la chaîne brute des modèles vision en une liste de chaînes exploitables.
-
-        Returns:
-            List[str]: Liste des identifiants de modèles vision nettoyés.
-        """
         return [item.strip() for item in self.VISION_MODEL_CHAIN_RAW.split(",") if item.strip()]
 
     @property
     def AUDIO_TRANSCRIPTION_CHAIN(self) -> List[str]:
-        """
-        Découpe la chaîne brute des moteurs audio en une liste de chaînes exploitables.
-
-        Returns:
-            List[str]: Liste des moteurs de transcription audio nettoyés.
-        """
         return [item.strip() for item in self.AUDIO_TRANSCRIPTION_CHAIN_RAW.split(",") if item.strip()]
 
     model_config = SettingsConfigDict(
@@ -124,5 +107,4 @@ class Settings(BaseSettings):
     )
 
 
-# Instance unique (singleton) exportée pour être utilisée dans toute l'application
 settings = Settings()
