@@ -5,6 +5,10 @@ from app.core.security import verify_internal_token
 from app.services.llm_router import llm_router
 from typing import Optional
 from app.services.audio_service import audio_service
+import mimetypes
+from app.core.contracts import VisionAnalysisResponse
+from app.services.vision_service import vision_service, VisionExtractionError
+
 
 
 router = APIRouter()
@@ -99,3 +103,118 @@ async def transcribe_audio_endpoint(
             status_code=500,
             detail=f"Erreur lors de la transcription audio : {str(exc)}"
         )
+
+
+router = APIRouter()
+
+MODELE_VISION_PAR_DEFAUT = "qwen/qwen3.6-27b"
+EXTENSIONS_IMAGE_AUTORISEES = (".jpg", ".jpeg", ".png", ".webp")
+
+
+@router.post(
+    "/image/analyze",
+    response_model=VisionAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(verify_internal_token)],
+    summary="Extrait les données d'une facture Senelec ou d'un compteur électrique",
+)
+async def analyze_image_endpoint(
+    file: UploadFile = File(...),
+    modele: Optional[str] = Form(
+        default=None,
+        description="Modèle vision optionnel pour surcharger la valeur par défaut",
+    ),
+) -> VisionAnalysisResponse:
+    """
+    Analyse un document énergétique ou une photo de compteur et extrait les
+    champs structurés : numéro de facture, police, compteur, consommation et montant.
+    """
+
+    filename = file.filename or ""
+    filename_lower = filename.lower()
+
+    if not filename_lower.endswith(EXTENSIONS_IMAGE_AUTORISEES):
+        formats_acceptes = ", ".join(EXTENSIONS_IMAGE_AUTORISEES)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Format d'image non pris en charge. "
+                f"Formats acceptés : {formats_acceptes}"
+            ),
+        )
+
+    mime_type, _ = mimetypes.guess_type(filename_lower)
+    if not mime_type or not mime_type.startswith("image/"):
+        mime_type = "image/jpeg"
+
+    try:
+        content = await file.read()
+
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le fichier image est vide.",
+            )
+
+        (
+            champs_extraits,
+            champs_non_lisibles,
+            execution_time,
+        ) = await vision_service.analyser_facture_ou_compteur(
+            image_bytes=content,
+            mime_type=mime_type,
+            modele=modele,
+        )
+
+        model_used = modele or MODELE_VISION_PAR_DEFAUT
+        champs_detectes = [
+            f"{cle}: {valeur}"
+            for cle, valeur in champs_extraits.items()
+            if valeur is not None
+        ]
+
+        if champs_detectes:
+            description = (
+                "Extraction réussie. Champs détectés : "
+                + "; ".join(champs_detectes)
+                + "."
+            )
+        else:
+            description = (
+                "Aucune donnée clairement lisible n'a été détectée sur l'image."
+            )
+
+        return VisionAnalysisResponse(
+            description=description,
+            champs=champs_extraits,
+            champs_non_lisibles=champs_non_lisibles,
+            model_used=model_used,
+            execution_time_seconds=execution_time,
+        )
+
+    except HTTPException:
+        raise
+
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err),
+        ) from val_err
+
+    except VisionExtractionError as ext_err:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Échec de l'extraction de données de l'image : "
+                f"{ext_err}"
+            ),
+        ) from ext_err
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors du traitement de l'image : {exc}",
+        ) from exc
+
+    finally:
+        await file.close()
