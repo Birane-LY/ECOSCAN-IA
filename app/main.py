@@ -5,11 +5,11 @@ from app.core.config import settings
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
-    description="Microservice IA/RAG pour EcoScan"
+    description="Microservice IA/RAG pour EcoScan",
 )
 
-# Inclusion des routes v1
-app.include_router(api_v1_router, prefix="/api/v1")
+app.include_router(api_v1_router)
+app.include_router(api_v1_router, prefix="/api/v1", include_in_schema=False)
 
 
 @app.get("/health", tags=["Health Check"])
