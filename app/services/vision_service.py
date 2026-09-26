@@ -37,15 +37,18 @@ class VisionExtractionError(Exception):
 
 class VisionService:
     def __init__(self) -> None:
-        api_key = settings.GROQ_API_KEY
-        if not api_key:
-            raise ValueError(
-                "La variable GROQ_API_KEY n'est pas configurée."
-            )
+        # Client créé à la demande : l'absence de GROQ_API_KEY ne doit plus
+        # empêcher tout le service FastAPI (assistant, RAG...) de démarrer.
+        self._client = None
 
-        # Ne pas définir base_url : le SDK ajoute automatiquement
-        # /openai/v1/chat/completions à l'URL officielle Groq.
-        self.client = AsyncGroq(api_key=api_key)
+    @property
+    def client(self) -> AsyncGroq:
+        if self._client is None:
+            if not settings.GROQ_API_KEY:
+                raise VisionExtractionError("La variable GROQ_API_KEY n'est pas configurée.")
+            # Ne pas définir base_url : le SDK ajoute /openai/v1/chat/completions.
+            self._client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+        return self._client
 
     async def analyser_facture_ou_compteur(
         self,
@@ -165,7 +168,9 @@ class VisionService:
 
     async def fermer(self) -> None:
         """Ferme proprement le client HTTP Groq."""
-        close_method = getattr(self.client, "close", None)
+        if self._client is None:
+            return
+        close_method = getattr(self._client, "close", None)
         if close_method is not None:
             result = close_method()
             if result is not None:
