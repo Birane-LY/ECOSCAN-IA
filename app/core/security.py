@@ -14,7 +14,11 @@ async def verify_internal_token(token: str = Security(api_key_header)) -> str:
     que seul le backend Django (ou un service autorisé) peut y accéder.
     
     """
-    if not settings.INTERNAL_TOKEN or settings.INTERNAL_TOKEN == "change-me-in-production":
+    if settings.INTERNAL_TOKEN.strip() in {
+        "",
+        "change-me-in-production",
+        "votre-jeton-secret-interne-ici",
+    }:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="INTERNAL_TOKEN non configuré en production.",

@@ -82,9 +82,9 @@ class Settings(BaseSettings):
         description="Liste brute séparée par des virgules des modèles vision à essayer en cascade."
     )
     AUDIO_TRANSCRIPTION_CHAIN_RAW: str = Field(
-        default="local:faster-whisper,local:AIHubSN/Kiriku-Wolof-ASR",
+        default="groq:whisper-large-v3",
         alias="AUDIO_TRANSCRIPTION_CHAIN",
-        description="Liste brute séparée par des virgules des moteurs de transcription audio."
+        description="Moteur de transcription audio configuré pour le service audio."
     )
 
     MIN_BACKUPS_RECOMMANDES: int = Field(

@@ -78,11 +78,9 @@ async def repondre(
         f"Données actuelles de l'organisation (JSON) :\n{donnees_live}"
     )
 
-    try:
-        reponse_texte, modele_utilise = await llm_router.generate_text(prompt=prompt, system_prompt=_system_prompt())
-    except RuntimeError as exc:
-        logger.error("Chaîne de secours LLM entièrement épuisée : %s", exc)
-        reponse_texte = "Le service IA est temporairement indisponible — merci de réessayer dans un instant."
-        modele_utilise = "none"
+    reponse_texte, modele_utilise = await llm_router.generate_text(
+        prompt=prompt,
+        system_prompt=_system_prompt(),
+    )
 
     return {"answer": reponse_texte, "sources": passages, "model_used": modele_utilise}

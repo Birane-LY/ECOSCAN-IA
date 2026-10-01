@@ -1,0 +1,6 @@
+# Dependances facultatives pour les futurs moteurs audio/modeles locaux.
+# Le runtime EcoScan IA actuel utilise les fournisseurs d'inference distants.
+faster-whisper==1.2.1
+transformers==5.17.0
+torch==2.14.0
+accelerate==1.4.0

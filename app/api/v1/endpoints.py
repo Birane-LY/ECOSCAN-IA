@@ -33,13 +33,19 @@ ALLOWED_AUDIO_EXTENSIONS = (".mp3", ".wav", ".m4a", ".ogg", ".webm", ".flac")
     summary="Assistant conversationnel EcoScan (RAG + données live)",
 )
 async def internal_query(payload: InternalQueryRequest) -> InternalQueryResponse:
-    resultat = await assistant_service.repondre(
-        question=payload.question,
-        organisation_id=payload.organisation_id,
-        limit=payload.limit,
-        include_live_data=payload.include_live_data,
-        history=payload.history,
-    )
+    try:
+        resultat = await assistant_service.repondre(
+            question=payload.question,
+            organisation_id=payload.organisation_id,
+            limit=payload.limit,
+            include_live_data=payload.include_live_data,
+            history=payload.history,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tous les fournisseurs IA sont momentanément indisponibles.",
+        ) from exc
     return InternalQueryResponse(**resultat)
 
 
@@ -86,19 +92,28 @@ async def query_llm(request: RAGQueryRequest) -> RAGQueryResponse:
     summary="Transcrit un fichier audio en texte",
 )
 async def transcribe_audio_endpoint(file: UploadFile = File(...), language: Optional[str] = Form(default=None)):
-    if not file.filename.lower().endswith(ALLOWED_AUDIO_EXTENSIONS):
+    filename = file.filename or ""
+    if not filename.lower().endswith(ALLOWED_AUDIO_EXTENSIONS):
         raise HTTPException(status_code=400, detail=f"Format non pris en charge. Formats acceptés : {', '.join(ALLOWED_AUDIO_EXTENSIONS)}")
     try:
         content = await file.read()
+        if not content:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le fichier audio est vide.")
         transcription, detected_lang, engine, execution_time = await audio_service.transcribe_audio(
-            file_bytes=content, filename=file.filename, language=language,
+            file_bytes=content, filename=filename, language=language,
         )
+        if not transcription.strip():
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Aucune parole n’a été reconnue dans cet enregistrement.")
         return AudioTranscriptionResponse(
             transcription=transcription, language_detected=detected_lang,
             engine_used=engine, execution_time_seconds=execution_time,
         )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la transcription audio : {exc}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Erreur lors de la transcription audio : {exc}") from exc
 
 
 @router.post(

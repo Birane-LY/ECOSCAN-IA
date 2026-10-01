@@ -1,6 +1,7 @@
 import logging
 import time
 import httpx
+import mimetypes
 from typing import Tuple, Optional
 from app.core.config import settings
 
@@ -34,9 +35,8 @@ class AudioService:
             "Authorization": f"Bearer {settings.GROQ_API_KEY}"
         }
 
-        files = {
-            "file": (filename, file_bytes, "audio/mpeg")
-        }
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        files = {"file": (filename, file_bytes, content_type)}
         data = {
             "model": "whisper-large-v3",
             "response_format": "json"
