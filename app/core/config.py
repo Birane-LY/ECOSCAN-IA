@@ -29,6 +29,10 @@ class Settings(BaseSettings):
         default="http://localhost:8000",
         description="URL de base de l'application Django principale."
     )
+    DJANGO_HOST_HEADER: str = Field(
+        default="",
+        description="Valeur Host HTTP optionnelle pour les accès Django via une passerelle réseau."
+    )
     DJANGO_INTERNAL_TOKEN: str = Field(
         default="change-me-in-production",
         description="Jeton d'authentification pour communiquer avec l'API Django."
@@ -67,19 +71,16 @@ class Settings(BaseSettings):
     )
 
     # --- Chaînes de Secours (Failover) ---
-    # openai/gpt-oss-120b remplace llama-3.3-70b-versatile (décommissionné par
-    # Groq le 16/08/2026) et mixtral-8x7b-32768 (retiré en 2025, sans
-    # successeur direct) — les deux modèles précédemment configurés ici sont
-    # morts, ce qui provoquait un échec total de la chaîne Groq.
+    # Groq reste prioritaire; OpenAI est le secours externe autorisé.
     TEXT_MODEL_CHAIN_RAW: str = Field(
-        default="groq:openai/gpt-oss-120b,groq:qwen/qwen3.6-27b,huggingface:meta-llama/Llama-3.3-70B-Instruct",
+        default="groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b,openai:gpt-4.1-mini",
         alias="TEXT_MODEL_CHAIN",
-        description="Liste brute séparée par des virgules des modèles texte à essayer en cascade (Groq en priorité ou backup)."
+        description="Modèles Groq prioritaires, avec secours OpenAI."
     )
     VISION_MODEL_CHAIN_RAW: str = Field(
-        default="groq:llama-3.2-11b-vision-preview,huggingface:meta-llama/Llama-3.2-11B-Vision-Instruct",
+        default="groq:qwen/qwen3.6-27b",
         alias="VISION_MODEL_CHAIN",
-        description="Liste brute séparée par des virgules des modèles vision à essayer en cascade."
+        description="Modèle Groq vision configuré."
     )
     AUDIO_TRANSCRIPTION_CHAIN_RAW: str = Field(
         default="groq:whisper-large-v3",

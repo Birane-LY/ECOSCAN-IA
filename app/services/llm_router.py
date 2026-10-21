@@ -41,11 +41,20 @@ class LLMRouterService:
         """
         chain = model_chain or settings.TEXT_MODEL_CHAIN
         errors: List[str] = []
+        rate_limited_providers = set()
 
         for model_spec in chain:
+            provider = None
             try:
-                logger.info(f"Tentative de génération avec le modèle : {model_spec}")
                 provider, model_name = self._parse_model_spec(model_spec)
+                if provider in rate_limited_providers:
+                    logger.info(
+                        "Modèle ignoré après limitation de débit du fournisseur %s : %s",
+                        provider,
+                        model_name,
+                    )
+                    continue
+                logger.info("Tentative de génération avec le modèle : %s", model_spec)
 
                 if provider == "groq":
                     response_text = await self._call_groq(prompt, system_prompt, model_name)
@@ -60,6 +69,13 @@ class LLMRouterService:
                 return response_text, model_spec
 
             except Exception as exc:
+                status_code = (
+                    exc.response.status_code
+                    if isinstance(exc, httpx.HTTPStatusError)
+                    else None
+                )
+                if status_code == 429 and provider:
+                    rate_limited_providers.add(provider)
                 error_msg = f"Échec avec {model_spec}: {str(exc)}"
                 logger.warning(error_msg)
                 errors.append(error_msg)

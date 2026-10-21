@@ -13,6 +13,8 @@ async def get_live_context(organisation_id: str) -> dict:
     """
     url = f"{settings.DJANGO_API_URL.rstrip('/')}/api/internal/organisations/{organisation_id}/ai-context/"
     headers = {"X-Internal-Service-Token": settings.DJANGO_INTERNAL_TOKEN}
+    if settings.DJANGO_HOST_HEADER:
+        headers["Host"] = settings.DJANGO_HOST_HEADER
     try:
         async with httpx.AsyncClient(timeout=settings.DJANGO_TIMEOUT) as client:
             r = await client.get(url, headers=headers)
