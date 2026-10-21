@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ecoscan-ai
+    runtime: docker
+    region: frankfurt
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: INTERNAL_TOKEN
+        sync: false
+      - key: DJANGO_INTERNAL_TOKEN
+        sync: false
+      - key: DJANGO_API_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TEXT_MODEL_CHAIN
+        value: groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b
+      - key: RAG_STORE_PATH
+        value: /tmp/rag_store.json

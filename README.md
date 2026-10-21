@@ -67,6 +67,23 @@ Les inférences distantes transmettent des prompts, documents pertinents,
 questions et, pour l'extraction, des images aux fournisseurs configurés. Ce
 flux externe doit être accepté par la politique de confidentialité d'EcoScan.
 
+### Prototype Render Free
+
+Le Blueprint `render.yaml` déploie le service IA comme web service gratuit
+pour un prototype. Render Free ne fournit pas de réseau privé entrant entre
+services : Django doit appeler l'URL HTTPS publique de l'IA et celle-ci doit
+appeler l'URL HTTPS publique de Django. Les deux échanges restent protégés par
+des jetons distincts configurés comme secrets dans Render (`AI_SERVICE_INTERNAL_TOKEN`
+du backend doit correspondre à `INTERNAL_TOKEN` ici; `DJANGO_INTERNAL_TOKEN`
+doit correspondre à celui du backend). Ne transmettez jamais ces valeurs dans
+Git ou une conversation.
+
+Le chemin `RAG_STORE_PATH` du Blueprint pointe vers `/tmp`; son contenu est
+éphémère et peut disparaître lors d'un redémarrage ou d'une mise en veille.
+N'indexez aucune donnée réelle ou document confidentiel sur cette instance.
+Les limites de veille, d'heures et de trafic des offres Free peuvent également
+interrompre l'accès; ce profil n'est pas destiné à la production.
+
 ## Fonctionnalités
 
 | Fonction | Point d'entrée FastAPI | Inférence / stockage |
